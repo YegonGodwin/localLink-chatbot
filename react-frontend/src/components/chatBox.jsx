@@ -90,13 +90,13 @@ export default function ChatBox() {
           </div>
         ))}
         {isTyping && (
-          <div className="message bot-message">
+          <div className="message bot-message typing-message">
             <div className="avatar">🤖</div>
             <div className="message-content">
               <div className="typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
+                <div className="dot"></div>
+                <div className="dot"></div>
+                <div className="dot"></div>
               </div>
             </div>
           </div>
