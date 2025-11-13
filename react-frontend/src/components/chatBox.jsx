@@ -1,11 +1,46 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, forwardRef } from "react";
 import { sendMessageToBot } from "../services/chatService";
 import "../styles/chatBox.css";
+
+const MessagesContainer = forwardRef(({ children, onScroll }, ref) => (
+  <div className="messages" ref={ref} onScroll={onScroll}>
+    {children}
+  </div>
+));
+
+const Message = forwardRef(({ msg }, ref) => (
+  <div
+    ref={ref}
+    className={`message ${msg.sender}-message`}
+  >
+    <div className="avatar">
+      {msg.sender === "user" ? "👤" : "🤖"}
+    </div>
+    <div className="message-content">
+      <div className="message-text" dangerouslySetInnerHTML={{ __html: msg.text.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>') }}></div>
+      <div className="message-time">{msg.timestamp}</div>
+    </div>
+  </div>
+));
 
 export default function ChatBox() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [isDarkTheme, setIsDarkTheme] = useState(false);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // Theme toggle handler
+  const toggleTheme = () => {
+    setIsDarkTheme(!isDarkTheme);
+    document.documentElement.setAttribute('data-theme', !isDarkTheme ? 'dark' : 'light');
+  };
 
   // Load message history from localStorage on component mount
   useEffect(() => {
@@ -18,7 +53,16 @@ export default function ChatBox() {
   // Save messages to localStorage whenever messages change
   useEffect(() => {
     localStorage.setItem('localLinkChatMessages', JSON.stringify(messages));
+    scrollToBottom();
   }, [messages]);
+
+  const handleScroll = () => {
+    if (messagesContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+      const isScrolledUp = scrollTop < scrollHeight - clientHeight - 100;
+      setShowScrollToBottom(isScrolledUp);
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -53,12 +97,11 @@ export default function ChatBox() {
     }
   };
 
-  const handleQuickReply = async (service) => {
-    const quickInput = `Tell me about ${service}`;
-    setInput(quickInput);
-    setTimeout(() => { // Allow state update to process first
-      handleSend();
-    }, 0);
+  const handleQuickReply = (service) => {
+    setInput(`Tell me about ${service}`);
+    setTimeout(() => {
+      document.querySelector('.input-area button').click();
+    }, 100);
   };
 
   const handleKeyPress = (e) => {
@@ -70,24 +113,24 @@ export default function ChatBox() {
   return (
     <div className="chat-container">
       <div className="chat-header">
-        <h3>LocalLink Assistant</h3>
-        <p>Connecting campus services and students</p>
+        <div className="avatar">🤖</div>
+        <div className="header-content">
+          <h3>LocalLink Assistant</h3>
+          <p className="status-indicator">Online</p>
+          <p className="header-subtitle">Your gateway to campus services & opportunities</p>
+        </div>
+        <button 
+          className="theme-toggle"
+          onClick={toggleTheme}
+          aria-label={`Switch to ${isDarkTheme ? 'light' : 'dark'} theme`}
+        >
+          {isDarkTheme ? '🌞' : '🌙'}
+        </button>
       </div>
       
-      <div className="messages">
+      <MessagesContainer ref={messagesContainerRef} onScroll={handleScroll}>
         {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`message ${msg.sender}-message`}
-          >
-            <div className="avatar">
-              {msg.sender === "user" ? "👤" : "🤖"}
-            </div>
-            <div className="message-content">
-              <div className="message-text">{msg.text}</div>
-              <div className="message-time">{msg.timestamp}</div>
-            </div>
-          </div>
+          <Message key={i} msg={msg} ref={i === messages.length - 1 ? messagesEndRef : null} />
         ))}
         {isTyping && (
           <div className="message bot-message typing-message">
@@ -101,7 +144,14 @@ export default function ChatBox() {
             </div>
           </div>
         )}
-      </div>
+        <div ref={messagesEndRef} />
+      </MessagesContainer>
+
+      {showScrollToBottom && (
+        <div className="scroll-to-bottom" onClick={scrollToBottom}>
+          ⬇️
+        </div>
+      )}
 
       <div className="quick-replies">
         <span onClick={() => handleQuickReply("tutoring")} className="quick-reply">Tutoring</span>
@@ -116,9 +166,9 @@ export default function ChatBox() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder="Ask LocalLink about services, events, or providers..."
+          placeholder="Ask LocalLink..."
         />
-        <button onClick={handleSend}>Send</button>
+        <button onClick={handleSend}>➢</button>
       </div>
     </div>
   );
